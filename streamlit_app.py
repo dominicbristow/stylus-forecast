@@ -104,6 +104,12 @@ mat_cum = pd.Series(mat_conv).cumsum()
 mat_price_q = [ann_price.get(p.year, school_price_y3)*mat_multiplier/4 for p in periods]
 mat_rev = [c*p for c,p in zip(mat_cum, mat_price_q)]
 
+# ensure forecast runs far enough to include chosen launch quarters
+all_needed = {dist_start_q, eal_start_q}
+while max(all_needed) > labels[-1]:
+    periods = periods.append(periods[-1] + 1)       # add another quarter
+    labels  = periods.astype(str)
+
 # US districts
 idx0 = labels.index(dist_start_q)
 dist_add = [0]*14
