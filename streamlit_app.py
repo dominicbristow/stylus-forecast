@@ -111,7 +111,7 @@ while max(all_needed) > labels[-1]:
     labels  = periods.astype(str)
 
 # US districts
-idx0 = labels.index(dist_start_q)
+idx0 = list(labels).index(dist_start_q)
 dist_add = [0]*14
 for i in range(idx0,14):
     dist_add[i] = dist_add_q if i>idx0 else 1
@@ -122,7 +122,7 @@ dist_price_q = [0 if p.year<2027 else
 dist_rev = [c*p for c,p in zip(dist_cum, dist_price_q)]
 
 # EAL
-idx_eal = labels.index(eal_start_q)
+idx_eal = list(labels).index(eal_start_q)
 eal_learn = [0]*14
 if idx_eal<14:
     n = eal_start_learners
