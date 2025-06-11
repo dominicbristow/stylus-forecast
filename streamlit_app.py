@@ -70,19 +70,22 @@ labels  = periods.astype(str)
 
 # UK school count generator
 def build_uk_counts():
-    counts = []
-    half_targets = [start_uk]
-    for i in range(1, 6):                      # 5 half-years ahead
-        if i <= 4:                             # hyper-growth phase
+    counts, half_targets = [], [start_uk]
+
+    # we need 6 half-year targets (12 quarters), not 5
+    for i in range(1, 7):          # ← was range(1, 6)
+        if i <= 4:                 # hyper-growth
             target = round(start_uk * (uk_growth_fast ** i))
-        else:                                  # taper phase
+        else:                      # taper
             target = round(half_targets[-1] * (1 + uk_growth_taper*2))
         half_targets.append(target)
-    for h in range(len(half_targets)-1):       # 40/60 split per half-year
-        base, nxt = half_targets[h], half_targets[h+1]
-        delta     = nxt - base
-        counts.extend([base + round(delta*0.4), nxt])
-    return counts[:12]
+
+    for h in range(len(half_targets) - 1):
+        base, nxt = half_targets[h], half_targets[h + 1]
+        delta = nxt - base
+        counts.extend([base + round(delta * 0.4), nxt])
+
+    return counts[:12]             # now returns 12 non-zero values
 
 uk_counts = build_uk_counts()
 
