@@ -323,18 +323,42 @@ if view == "Revenue":
     st.dataframe(revenue_display, use_container_width=True)
     
     # Create revenue chart
+    # First create the individual streams data
     revenue_long = pd.melt(revenue_df, id_vars=['Quarter'], 
                           value_vars=['UK Schools', 'MATs', 'US Districts', 'EAL'],
                           var_name='Revenue Stream', value_name='Revenue')
     
-    chart = alt.Chart(revenue_long).mark_line(strokeWidth=3).encode(
+    # Add total revenue as another stream
+    total_df = revenue_df[['Quarter', 'Total']].copy()
+    total_df['Revenue Stream'] = 'Total'
+    total_df['Revenue'] = total_df['Total']
+    total_df = total_df[['Quarter', 'Revenue Stream', 'Revenue']]
+    
+    # Combine the data
+    chart_data = pd.concat([revenue_long, total_df], ignore_index=True)
+    
+    # Create the chart
+    chart = alt.Chart(chart_data).mark_line(strokeWidth=3).encode(
         x=alt.X('Quarter:O', 
                 sort=quarters,
                 axis=alt.Axis(labelAngle=-45)),
         y=alt.Y('Revenue:Q', 
                 axis=alt.Axis(format=',.0f', title='Quarterly Revenue (£)')),
         color=alt.Color('Revenue Stream:N', 
-                       scale=alt.Scale(scheme='category10')),
+                       scale=alt.Scale(
+                           domain=['UK Schools', 'MATs', 'US Districts', 'EAL', 'Total'],
+                           range=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+                       )),
+        strokeDash=alt.condition(
+            alt.datum['Revenue Stream'] == 'Total',
+            alt.value([5, 5]),  # Dashed line for total
+            alt.value([0])       # Solid line for others
+        ),
+        strokeWidth=alt.condition(
+            alt.datum['Revenue Stream'] == 'Total',
+            alt.value(4),        # Thicker line for total
+            alt.value(3)         # Normal width for others
+        ),
         tooltip=[
             alt.Tooltip('Quarter:N'),
             alt.Tooltip('Revenue Stream:N'),
