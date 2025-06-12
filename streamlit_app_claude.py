@@ -25,6 +25,7 @@ taper_growth_rate = 0.20
 mat_trials_per_quarter = 20
 mat_conversion_rate = 0.70
 schools_per_mat = 10
+mat_annual_churn = 0.10
 us_launch_quarter = "Q1 2027"
 districts_per_quarter = 15
 eal_launch_quarter = "Q1 2028"
@@ -62,6 +63,7 @@ with revenue_params:
     mat_trials_per_quarter = st.number_input("MAT trials per quarter", value=20, min_value=0, step=5, key="mat_trials")
     mat_conversion_rate = st.number_input("MAT conversion rate (%)", value=70, min_value=0, max_value=100, step=5, key="mat_conv") / 100
     schools_per_mat = st.number_input("Schools per MAT", value=10, min_value=1, step=5, key="schools_mat")
+    mat_annual_churn = st.number_input("MAT annual churn rate (%)", value=10, min_value=0, max_value=50, step=5, key="mat_churn") / 100
     
     st.subheader("US Districts")
     us_launch_options = ["Q1 2027", "Q2 2027", "Q3 2027"]
@@ -158,12 +160,22 @@ def calculate_uk_schools(quarters, starting_schools, hyper_growth_factor, taper_
     return schools, revenue
 
 # Calculate MAT revenue
-def calculate_mat_revenue(quarters, trials_per_q, conversion_rate, schools_per_mat):
+def calculate_mat_revenue(quarters, trials_per_q, conversion_rate, schools_per_mat, annual_churn):
     mat_trials = []
     mat_conversions = []
+    mat_cohorts = []  # Track when each cohort of MATs converted
     mat_revenue = []
+    active_mats = []  # Track total active MATs per quarter
+    
+    # Convert annual churn to quarterly
+    quarterly_churn = 1 - (1 - annual_churn) ** 0.25
     
     for i, q in enumerate(quarters):
+        # Apply churn to existing cohorts at the beginning of each quarter (except the first)
+        if i > 0:
+            for cohort in mat_cohorts:
+                cohort['current_mats'] *= (1 - quarterly_churn)
+        
         # Trials - double in first quarter
         if i == 0:
             mat_trials.append(trials_per_q * 2)
@@ -172,27 +184,45 @@ def calculate_mat_revenue(quarters, trials_per_q, conversion_rate, schools_per_m
         
         # Conversions - 2 quarter lag
         if i < 2:
-            mat_conversions.append(0)
+            new_conversions = 0
         else:
-            mat_conversions.append(int(mat_trials[i-2] * conversion_rate))
+            new_conversions = int(mat_trials[i-2] * conversion_rate)
+        mat_conversions.append(new_conversions)
         
-        # Revenue
-        if i < 2:
-            mat_revenue.append(0)
-        else:
-            year = (i-2) // 4 + 1  # Year based on conversion quarter
-            if year == 1:
+        # Add new cohort if there are conversions
+        if new_conversions > 0:
+            mat_cohorts.append({
+                'quarter_converted': i,
+                'initial_mats': new_conversions,
+                'current_mats': new_conversions
+            })
+        
+        # Calculate revenue and count active MATs
+        quarterly_revenue = 0
+        total_active_mats = 0
+        
+        for cohort in mat_cohorts:
+            total_active_mats += cohort['current_mats']
+            
+            # Calculate revenue for this cohort based on their tenure
+            quarters_since_conversion = i - cohort['quarter_converted']
+            year_of_service = quarters_since_conversion // 4 + 1
+            
+            if year_of_service == 1:
                 annual_price = 5000
-            elif year == 2:
+            elif year_of_service == 2:
                 annual_price = 10000
             else:
                 annual_price = 15000
             
-            # MAT revenue = conversions * schools per MAT * price
-            quarterly_revenue = (mat_conversions[i] * schools_per_mat * annual_price) / 4
-            mat_revenue.append(quarterly_revenue)
+            # Revenue for this cohort
+            cohort_revenue = (cohort['current_mats'] * schools_per_mat * annual_price) / 4
+            quarterly_revenue += cohort_revenue
+        
+        mat_revenue.append(quarterly_revenue)
+        active_mats.append(int(total_active_mats))
     
-    return mat_trials, mat_conversions, mat_revenue
+    return mat_trials, mat_conversions, mat_revenue, active_mats
 
 # Calculate US Districts revenue
 def calculate_us_revenue(quarters, launch_quarter, districts_per_q):
@@ -252,7 +282,7 @@ def calculate_eal_revenue(quarters, launch_quarter, initial_learners, growth_mul
 
 # Calculate all revenue streams
 uk_schools, uk_revenue = calculate_uk_schools(quarters, starting_uk_schools, hyper_growth_factor, taper_growth_rate)
-mat_trials, mat_conversions, mat_revenue = calculate_mat_revenue(quarters, mat_trials_per_quarter, mat_conversion_rate, schools_per_mat)
+mat_trials, mat_conversions, mat_revenue, active_mats = calculate_mat_revenue(quarters, mat_trials_per_quarter, mat_conversion_rate, schools_per_mat, mat_annual_churn)
 us_districts, us_revenue = calculate_us_revenue(quarters, us_launch_quarter, districts_per_quarter)
 eal_learners, eal_revenue = calculate_eal_revenue(quarters, eal_launch_quarter, initial_eal_learners, eal_growth_multiplier)
 
@@ -272,6 +302,18 @@ revenue_df = pd.DataFrame({
 if view == "Revenue":
     # Display revenue view
     st.header("Revenue Forecast")
+    
+    # Add key metrics
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("UK Schools (Latest)", f"{uk_schools[-1]:,}")
+    with col2:
+        # Show active MATs accounting for churn
+        st.metric("Active MATs", f"{active_mats[-1]:,}")
+    with col3:
+        st.metric("US Districts (Latest)", f"{us_districts[-1]:,}")
+    with col4:
+        st.metric("EAL Learners (Latest)", f"{eal_learners[-1]:,}")
     
     # Format and display revenue table
     revenue_display = revenue_df.copy()
