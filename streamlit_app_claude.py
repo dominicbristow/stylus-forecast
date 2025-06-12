@@ -198,6 +198,7 @@ def calculate_mat_revenue(quarters, trials_per_q, conversion_rate, schools_per_m
 def calculate_us_revenue(quarters, launch_quarter, districts_per_q):
     us_revenue = []
     us_districts = []
+    us_districts_by_cohort = []  # Track when each cohort of districts started
     launch_idx = quarters.index(launch_quarter)
     
     for i, q in enumerate(quarters):
@@ -206,20 +207,25 @@ def calculate_us_revenue(quarters, launch_quarter, districts_per_q):
             us_revenue.append(0)
         elif i == launch_idx:
             us_districts.append(1)
+            us_districts_by_cohort.append({'quarter_started': i, 'districts': 1})
             # Year 1 pricing
             us_revenue.append(100000 / 4)  # Quarterly revenue
         else:
-            # Add districts
-            us_districts.append(us_districts[-1] + districts_per_q)
+            # Add new districts
+            new_districts = districts_per_q
+            us_districts.append(us_districts[-1] + new_districts)
+            us_districts_by_cohort.append({'quarter_started': i, 'districts': new_districts})
             
-            # Calculate revenue (Year 2+ pricing for new districts)
-            year1_districts = 1 if i - launch_idx < 4 else 0
-            year2_districts = us_districts[i] - year1_districts
+            # Calculate revenue for each cohort based on their tenure
+            quarterly_revenue = 0
+            for cohort in us_districts_by_cohort:
+                quarters_since_start = i - cohort['quarter_started']
+                if quarters_since_start < 4:  # Year 1
+                    quarterly_revenue += cohort['districts'] * 100000 / 4
+                else:  # Year 2+
+                    quarterly_revenue += cohort['districts'] * 150000 / 4
             
-            year1_revenue = year1_districts * 100000 / 4
-            year2_revenue = year2_districts * 150000 / 4
-            
-            us_revenue.append(year1_revenue + year2_revenue)
+            us_revenue.append(quarterly_revenue)
     
     return us_districts, us_revenue
 
@@ -280,9 +286,13 @@ if view == "Revenue":
                           var_name='Revenue Stream', value_name='Revenue')
     
     chart = alt.Chart(revenue_long).mark_line(strokeWidth=3).encode(
-        x=alt.X('Quarter:N', axis=alt.Axis(labelAngle=-45)),
-        y=alt.Y('Revenue:Q', axis=alt.Axis(format=',.0f', title='Quarterly Revenue (£)')),
-        color=alt.Color('Revenue Stream:N', scale=alt.Scale(scheme='category10')),
+        x=alt.X('Quarter:O', 
+                sort=quarters,
+                axis=alt.Axis(labelAngle=-45)),
+        y=alt.Y('Revenue:Q', 
+                axis=alt.Axis(format=',.0f', title='Quarterly Revenue (£)')),
+        color=alt.Color('Revenue Stream:N', 
+                       scale=alt.Scale(scheme='category10')),
         tooltip=[
             alt.Tooltip('Quarter:N'),
             alt.Tooltip('Revenue Stream:N'),
@@ -429,7 +439,9 @@ else:  # Cash-flow view
             x1=1, x2=1, y1=1, y2=0
         )
     ).encode(
-        x=alt.X('Quarter:N', axis=alt.Axis(labelAngle=-45)),
+        x=alt.X('Quarter:O', 
+                sort=quarters,
+                axis=alt.Axis(labelAngle=-45)),
         y=alt.Y('Cumulative Cash:Q', 
                 axis=alt.Axis(format=',.0f', title='Cumulative Cash Position (£)'),
                 scale=alt.Scale(zero=False)),
