@@ -18,6 +18,33 @@ if 'view' not in st.session_state:
 view = st.sidebar.radio("Select View", ["Revenue", "Cash-flow"], index=0 if st.session_state.view == "Revenue" else 1)
 st.session_state.view = view
 
+# Initialize default values for all parameters
+starting_uk_schools = 25
+hyper_growth_factor = 3.0
+taper_growth_rate = 0.20
+mat_trials_per_quarter = 20
+mat_conversion_rate = 0.70
+schools_per_mat = 10
+us_launch_quarter = "Q1 2027"
+districts_per_quarter = 15
+eal_launch_quarter = "Q1 2028"
+initial_eal_learners = 1_000_000
+eal_growth_multiplier = 2.0
+
+# Default cost parameters
+initial_employees = 3
+q4_2025_hires = 4
+quarterly_hires = 2
+avg_new_hire_salary = 80000
+salary_inflation = 0.04
+sales_marketing_pct = 0.12
+office_rent_monthly = 5000
+other_opex_monthly = 10000
+operational_inflation = 0.05
+rd_quarterly = 150000
+us_launch_cost = 500000
+eal_launch_cost = 250000
+
 # Sidebar inputs - Revenue parameters
 if view == "Revenue":
     st.sidebar.header("Revenue Parameters")
@@ -27,58 +54,61 @@ else:
 
 with revenue_params:
     st.subheader("UK Schools")
-    starting_uk_schools = st.number_input("Starting UK schools (Q3 2025)", value=25, min_value=1, step=5)
-    hyper_growth_factor = st.number_input("Hyper-growth factor (first 2 years)", value=3.0, min_value=1.0, max_value=5.0, step=0.1)
-    taper_growth_rate = st.number_input("Annual growth rate after 2 years (%)", value=20, min_value=0, max_value=100, step=5) / 100
+    starting_uk_schools = st.number_input("Starting UK schools (Q3 2025)", value=25, min_value=1, step=5, key="uk_schools")
+    hyper_growth_factor = st.number_input("Hyper-growth factor (first 2 years)", value=3.0, min_value=1.0, max_value=5.0, step=0.1, key="growth_factor")
+    taper_growth_rate = st.number_input("Annual growth rate after 2 years (%)", value=20, min_value=0, max_value=100, step=5, key="taper_rate") / 100
     
     st.subheader("MATs")
-    mat_trials_per_quarter = st.number_input("MAT trials per quarter", value=20, min_value=0, step=5)
-    mat_conversion_rate = st.number_input("MAT conversion rate (%)", value=70, min_value=0, max_value=100, step=5) / 100
-    schools_per_mat = st.number_input("Schools per MAT", value=10, min_value=1, step=5)
+    mat_trials_per_quarter = st.number_input("MAT trials per quarter", value=20, min_value=0, step=5, key="mat_trials")
+    mat_conversion_rate = st.number_input("MAT conversion rate (%)", value=70, min_value=0, max_value=100, step=5, key="mat_conv") / 100
+    schools_per_mat = st.number_input("Schools per MAT", value=10, min_value=1, step=5, key="schools_mat")
     
     st.subheader("US Districts")
     us_launch_options = ["Q1 2027", "Q2 2027", "Q3 2027"]
-    us_launch_quarter = st.selectbox("US launch quarter", us_launch_options, index=0)
-    districts_per_quarter = st.number_input("New districts per quarter (after launch)", value=15, min_value=0, step=5)
+    us_launch_quarter = st.selectbox("US launch quarter", us_launch_options, index=0, key="us_launch")
+    districts_per_quarter = st.number_input("New districts per quarter (after launch)", value=15, min_value=0, step=5, key="districts_q")
     
     st.subheader("EAL")
     eal_launch_options = ["Q1 2028", "Q2 2028", "Q3 2028"]
-    eal_launch_quarter = st.selectbox("EAL launch quarter", eal_launch_options, index=0)
-    initial_eal_learners = st.number_input("Initial EAL learners (millions)", value=1.0, min_value=0.1, step=0.1) * 1_000_000
-    eal_growth_multiplier = st.number_input("EAL quarterly growth multiplier", value=2.0, min_value=1.0, step=0.1)
+    eal_launch_quarter = st.selectbox("EAL launch quarter", eal_launch_options, index=0, key="eal_launch")
+    initial_eal_learners = st.number_input("Initial EAL learners (millions)", value=1.0, min_value=0.1, step=0.1, key="eal_learners") * 1_000_000
+    eal_growth_multiplier = st.number_input("EAL quarterly growth multiplier", value=2.0, min_value=1.0, step=0.1, key="eal_growth")
 
 # Cost parameters - only in Cash-flow view
 if view == "Cash-flow":
     st.sidebar.header("Cost Parameters")
     
     st.sidebar.subheader("Headcount")
-    initial_employees = st.sidebar.number_input("Initial employees", value=3, min_value=1, step=1)
-    q4_2025_hires = st.sidebar.number_input("Q4 2025 hires", value=4, min_value=0, step=1)
-    quarterly_hires = st.sidebar.number_input("Quarterly hires from Q1 2026", value=2, min_value=0, step=1)
-    avg_new_hire_salary = st.sidebar.number_input("Average new hire salary (£k)", value=80, min_value=0, step=10) * 1000
-    salary_inflation = st.sidebar.number_input("Annual salary inflation (%)", value=4, min_value=0, max_value=20, step=1) / 100
+    initial_employees = st.sidebar.number_input("Initial employees", value=3, min_value=1, step=1, key="init_emp")
+    q4_2025_hires = st.sidebar.number_input("Q4 2025 hires", value=4, min_value=0, step=1, key="q4_hires")
+    quarterly_hires = st.sidebar.number_input("Quarterly hires from Q1 2026", value=2, min_value=0, step=1, key="q_hires")
+    avg_new_hire_salary = st.sidebar.number_input("Average new hire salary (£k)", value=80, min_value=0, step=10, key="avg_salary") * 1000
+    salary_inflation = st.sidebar.number_input("Annual salary inflation (%)", value=4, min_value=0, max_value=20, step=1, key="sal_infl") / 100
     
     st.sidebar.subheader("Variable Costs")
-    sales_marketing_pct = st.sidebar.number_input("Sales & Marketing (% of revenue)", value=12, min_value=0, max_value=50, step=1) / 100
+    sales_marketing_pct = st.sidebar.number_input("Sales & Marketing (% of revenue)", value=12, min_value=0, max_value=50, step=1, key="sales_mkt") / 100
     
     st.sidebar.subheader("Fixed Costs")
-    office_rent_monthly = st.sidebar.number_input("Office rent per month (£k)", value=5, min_value=0, step=1) * 1000
-    other_opex_monthly = st.sidebar.number_input("Other OpEx per month (£k)", value=10, min_value=0, step=5) * 1000
-    operational_inflation = st.sidebar.number_input("Annual operational inflation (%)", value=5, min_value=0, max_value=20, step=1) / 100
-    rd_quarterly = st.sidebar.number_input("R&D per quarter (£k)", value=150, min_value=0, step=50) * 1000
+    office_rent_monthly = st.sidebar.number_input("Office rent per month (£k)", value=5, min_value=0, step=1, key="office") * 1000
+    other_opex_monthly = st.sidebar.number_input("Other OpEx per month (£k)", value=10, min_value=0, step=5, key="opex") * 1000
+    operational_inflation = st.sidebar.number_input("Annual operational inflation (%)", value=5, min_value=0, max_value=20, step=1, key="op_infl") / 100
+    rd_quarterly = st.sidebar.number_input("R&D per quarter (£k)", value=150, min_value=0, step=50, key="rd") * 1000
     
     st.sidebar.subheader("Expansion Costs")
-    us_launch_cost = st.sidebar.number_input("US launch cost (£k)", value=500, min_value=0, step=100) * 1000
-    eal_launch_cost = st.sidebar.number_input("EAL launch cost (£k)", value=250, min_value=0, step=50) * 1000
+    us_launch_cost = st.sidebar.number_input("US launch cost (£k)", value=500, min_value=0, step=100, key="us_cost") * 1000
+    eal_launch_cost = st.sidebar.number_input("EAL launch cost (£k)", value=250, min_value=0, step=50, key="eal_cost") * 1000
 
 # Helper functions
 def quarter_to_date(year_quarter):
-    year, quarter = year_quarter.split(" Q")
-    quarter_start_month = (int(quarter) - 1) * 3 + 1
+    # Handle format "Q1 2027"
+    parts = year_quarter.split(" ")
+    quarter = int(parts[0][1])  # Extract number from "Q1"
+    year = int(parts[1])
+    quarter_start_month = (quarter - 1) * 3 + 1
     return pd.Timestamp(f"{year}-{quarter_start_month:02d}-01")
 
 def date_to_quarter(date):
-    return f"{date.year} Q{(date.month - 1) // 3 + 1}"
+    return f"Q{(date.month - 1) // 3 + 1} {date.year}"
 
 def get_quarter_index(base_date, target_date):
     return (target_date.year - base_date.year) * 4 + (target_date.quarter - base_date.quarter)
