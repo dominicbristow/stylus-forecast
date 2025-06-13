@@ -386,8 +386,8 @@ st.caption("ARR (Annual Recurring Revenue) is shown for reference. All costs and
 known_salaries = [100000, 100000, 90000, 90000]
     
 # Calculate headcount and payroll
-    headcount = []
-    payroll = []
+headcount = []
+payroll = []
     
     for i, q in enumerate(quarters):
         if i == 0:  # Q3 2025
