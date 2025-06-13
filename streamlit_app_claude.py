@@ -39,6 +39,15 @@ quarterly_hires = 2
 avg_new_hire_salary = 80000
 salary_inflation = 0.04
 sales_marketing_pct = 0.12
+# COGS breakdown
+api_cost_year1 = 0.15
+api_cost_year2 = 0.10
+api_cost_year3 = 0.05
+infrastructure_pct = 0.03
+support_pct = 0.02
+payment_processing_pct = 0.025
+other_variable_pct = 0.02
+# Fixed costs
 office_rent_monthly = 5000
 other_opex_monthly = 10000
 operational_inflation = 0.05
@@ -89,6 +98,18 @@ if view == "Cash-flow":
     
     st.sidebar.subheader("Variable Costs")
     sales_marketing_pct = st.sidebar.number_input("Sales & Marketing (% of revenue)", value=12, min_value=0, max_value=50, step=1, key="sales_mkt") / 100
+    
+    st.sidebar.subheader("COGS Breakdown")
+    st.sidebar.markdown("**API/AI Costs (% of revenue)**")
+    api_cost_year1 = st.sidebar.number_input("Year 1", value=15, min_value=0, max_value=50, step=1, key="api_y1") / 100
+    api_cost_year2 = st.sidebar.number_input("Year 2", value=10, min_value=0, max_value=50, step=1, key="api_y2") / 100
+    api_cost_year3 = st.sidebar.number_input("Year 3+", value=5, min_value=0, max_value=50, step=1, key="api_y3") / 100
+    
+    st.sidebar.markdown("**Other Variable Costs (% of revenue)**")
+    infrastructure_pct = st.sidebar.number_input("Infrastructure/Hosting", value=3, min_value=0, max_value=20, step=1, key="infra") / 100
+    support_pct = st.sidebar.number_input("Customer Support", value=2, min_value=0, max_value=20, step=1, key="support") / 100
+    payment_processing_pct = st.sidebar.number_input("Payment Processing", value=2.5, min_value=0.0, max_value=10.0, step=0.5, key="payment") / 100
+    other_variable_pct = st.sidebar.number_input("Other Variable", value=2, min_value=0, max_value=20, step=1, key="other_var") / 100
     
     st.sidebar.subheader("Fixed Costs")
     office_rent_monthly = st.sidebar.number_input("Office rent per month (£k)", value=5, min_value=0, step=1, key="office") * 1000
@@ -286,22 +307,22 @@ mat_trials, mat_conversions, mat_revenue, active_mats = calculate_mat_revenue(qu
 us_districts, us_revenue = calculate_us_revenue(quarters, us_launch_quarter, districts_per_quarter)
 eal_learners, eal_revenue = calculate_eal_revenue(quarters, eal_launch_quarter, initial_eal_learners, eal_growth_multiplier)
 
-# Calculate total revenue
-total_revenue = [uk + mat + us + eal for uk, mat, us, eal in zip(uk_revenue, mat_revenue, us_revenue, eal_revenue)]
+# Calculate total quarterly revenue (not ARR) for cost calculations
+total_quarterly_revenue = [uk + mat + us + eal for uk, mat, us, eal in zip(uk_revenue, mat_revenue, us_revenue, eal_revenue)]
 
-# Create revenue dataframe
+# Create revenue dataframe with ARR for display
 revenue_df = pd.DataFrame({
     'Quarter': quarters,
-    'UK Schools': uk_revenue,
-    'MATs': mat_revenue,
-    'US Districts': us_revenue,
-    'EAL': eal_revenue,
-    'Total': total_revenue
+    'UK Schools': [rev * 4 for rev in uk_revenue],  # Convert to ARR
+    'MATs': [rev * 4 for rev in mat_revenue],
+    'US Districts': [rev * 4 for rev in us_revenue],
+    'EAL': [rev * 4 for rev in eal_revenue],
 })
+revenue_df['Total'] = revenue_df['UK Schools'] + revenue_df['MATs'] + revenue_df['US Districts'] + revenue_df['EAL']
 
 if view == "Revenue":
     # Display revenue view
-    st.header("Revenue Forecast")
+    st.header("Revenue Forecast (ARR)")
     
     # Add key metrics
     col1, col2, col3, col4 = st.columns(4)
@@ -322,58 +343,63 @@ if view == "Revenue":
     
     st.dataframe(revenue_display, use_container_width=True)
     
-    # Create revenue chart
-    # First create the individual streams data
+    # Create stacked area chart
+    # Prepare data for stacked area chart
     revenue_long = pd.melt(revenue_df, id_vars=['Quarter'], 
                           value_vars=['UK Schools', 'MATs', 'US Districts', 'EAL'],
-                          var_name='Revenue Stream', value_name='Revenue')
+                          var_name='Revenue Stream', value_name='ARR')
     
-    # Add total revenue as another stream
-    total_df = revenue_df[['Quarter', 'Total']].copy()
-    total_df['Revenue Stream'] = 'Total'
-    total_df['Revenue'] = total_df['Total']
-    total_df = total_df[['Quarter', 'Revenue Stream', 'Revenue']]
+    # Define the order for stacking (bottom to top)
+    stream_order = ['UK Schools', 'MATs', 'US Districts', 'EAL']
     
-    # Combine the data
-    chart_data = pd.concat([revenue_long, total_df], ignore_index=True)
-    
-    # Create the chart
-    chart = alt.Chart(chart_data).mark_line(strokeWidth=3).encode(
+    chart = alt.Chart(revenue_long).mark_area(
+        line={'color':'darkgray', 'strokeWidth': 1},
+        opacity=0.8
+    ).encode(
         x=alt.X('Quarter:O', 
                 sort=quarters,
-                axis=alt.Axis(labelAngle=-45)),
-        y=alt.Y('Revenue:Q', 
-                axis=alt.Axis(format=',.0f', title='Quarterly Revenue (£)')),
-        color=alt.Color('Revenue Stream:N', 
+                axis=alt.Axis(labelAngle=-45, title='Quarter')),
+        y=alt.Y('ARR:Q', 
+                axis=alt.Axis(format=',.0f', title='Annual Recurring Revenue (£)'),
+                stack='zero'),
+        color=alt.Color('Revenue Stream:N',
                        scale=alt.Scale(
-                           domain=['UK Schools', 'MATs', 'US Districts', 'EAL', 'Total'],
-                           range=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
-                       )),
-        strokeDash=alt.condition(
-            alt.datum['Revenue Stream'] == 'Total',
-            alt.value([5, 5]),  # Dashed line for total
-            alt.value([0])       # Solid line for others
-        ),
-        strokeWidth=alt.condition(
-            alt.datum['Revenue Stream'] == 'Total',
-            alt.value(4),        # Thicker line for total
-            alt.value(3)         # Normal width for others
-        ),
+                           domain=stream_order,
+                           range=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+                       ),
+                       legend=alt.Legend(orient='top', title=None)),
+        order=alt.Order('Revenue Stream:N', sort=stream_order),
         tooltip=[
             alt.Tooltip('Quarter:N'),
             alt.Tooltip('Revenue Stream:N'),
-            alt.Tooltip('Revenue:Q', format=',.0f', title='Revenue (£)')
+            alt.Tooltip('ARR:Q', format=',.0f', title='ARR (£)')
         ]
     ).properties(
         width=800,
         height=400,
-        title='Revenue by Segment'
+        title='Annual Recurring Revenue by Segment (Stacked)'
     )
     
     st.altair_chart(chart, use_container_width=True)
 
 else:  # Cash-flow view
     st.header("Cash-flow Analysis")
+    st.caption("ARR (Annual Recurring Revenue) is shown for reference. All costs and cash calculations are based on actual quarterly revenue.")
+    
+    # Add key metrics
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        latest_arr = revenue_df['Total'].iloc[-1]
+        st.metric("Latest ARR", f"£{latest_arr:,.0f}")
+    with col2:
+        latest_gross_margin = (gross_profit[-1] / total_quarterly_revenue[-1] * 100) if total_quarterly_revenue[-1] > 0 else 0
+        st.metric("Gross Margin", f"{latest_gross_margin:.1f}%")
+    with col3:
+        latest_burn = operating_cash[-1]
+        st.metric("Quarterly Burn/Profit", f"£{latest_burn:,.0f}")
+    with col4:
+        latest_cash = cumulative_cash[-1]
+        st.metric("Cash Position", f"£{latest_cash:,.0f}")
     
     # Calculate costs
     # Known salaries for first 4 employees
@@ -413,23 +439,50 @@ else:  # Cash-flow view
         quarterly_payroll = (base_salaries * inflation_multiplier * 1.15) / 4
         payroll.append(quarterly_payroll)
     
-    # Calculate COGS
+    # Calculate COGS with detailed breakdown
     cogs = []
-    for i, rev in enumerate(total_revenue):
+    api_costs = []
+    infrastructure_costs = []
+    support_costs = []
+    payment_costs = []
+    other_variable_costs = []
+    
+    for i, rev in enumerate(total_quarterly_revenue):
         year = i // 4 + 1
+        
+        # API costs (decreasing over time)
         if year == 1:
-            cogs_rate = 0.25
+            api_rate = api_cost_year1
         elif year == 2:
-            cogs_rate = 0.20
+            api_rate = api_cost_year2
         else:
-            cogs_rate = 0.15
-        cogs.append(rev * cogs_rate)
+            api_rate = api_cost_year3
+        
+        api_cost = rev * api_rate
+        api_costs.append(api_cost)
+        
+        # Other variable costs (constant % of revenue)
+        infra_cost = rev * infrastructure_pct
+        infrastructure_costs.append(infra_cost)
+        
+        support_cost = rev * support_pct
+        support_costs.append(support_cost)
+        
+        payment_cost = rev * payment_processing_pct
+        payment_costs.append(payment_cost)
+        
+        other_cost = rev * other_variable_pct
+        other_variable_costs.append(other_cost)
+        
+        # Total COGS
+        total_cogs = api_cost + infra_cost + support_cost + payment_cost + other_cost
+        cogs.append(total_cogs)
     
     # Calculate gross profit
-    gross_profit = [rev - cog for rev, cog in zip(total_revenue, cogs)]
+    gross_profit = [rev - cog for rev, cog in zip(total_quarterly_revenue, cogs)]
     
     # Calculate other costs
-    sales_marketing = [rev * sales_marketing_pct for rev in total_revenue]
+    sales_marketing = [rev * sales_marketing_pct for rev in total_quarterly_revenue]
     
     # Fixed costs with inflation
     office_rent = []
@@ -475,8 +528,14 @@ else:  # Cash-flow view
     # Create cash-flow dataframe
     cashflow_df = pd.DataFrame({
         'Quarter': quarters,
-        'Revenue': total_revenue,
-        'COGS': cogs,
+        'ARR': [rev * 4 for rev in total_quarterly_revenue],  # Display as ARR
+        'Quarterly Revenue': total_quarterly_revenue,  # Actual quarterly revenue
+        'API/AI Costs': api_costs,
+        'Infrastructure': infrastructure_costs,
+        'Customer Support': support_costs,
+        'Payment Processing': payment_costs,
+        'Other Variable': other_variable_costs,
+        'Total COGS': cogs,
         'Gross Profit': gross_profit,
         'Payroll': payroll,
         'Sales & Marketing': sales_marketing,
@@ -523,4 +582,4 @@ else:  # Cash-flow view
     
     st.altair_chart(cash_chart, use_container_width=True)
     
-    st.caption("All figures shown are quarterly unless stated otherwise.")
+    st.caption("All figures shown are quarterly except ARR. COGS breakdown: API costs decrease from 15% to 5% over 3 years, while other costs remain constant as % of revenue.")
