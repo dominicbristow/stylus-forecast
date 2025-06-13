@@ -11,10 +11,6 @@ st.set_page_config(page_title="stylus | Financial Forecast", layout="wide")
 st.title("**stylus** | Financial Forecast")
 st.caption("Three-year forecast with two-quarter run-in period (Q3 2025 - Q4 2028)")
 
-# Navigation
-view = st.sidebar.radio("Select View", ["Revenue", "Cash-flow"], index=0 if st.session_state.view == "Revenue" else 1)
-st.session_state.view = view
-
 # Initialize default values for all parameters
 starting_uk_schools = 25
 hyper_growth_factor = 3.0
