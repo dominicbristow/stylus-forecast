@@ -353,7 +353,6 @@ if view == "Revenue":
     stream_order = ['UK Schools', 'MATs', 'US Districts', 'EAL']
     
     chart = alt.Chart(revenue_long).mark_area(
-        line={'color':'darkgray', 'strokeWidth': 1},
         opacity=0.8
     ).encode(
         x=alt.X('Quarter:O', 
@@ -368,7 +367,6 @@ if view == "Revenue":
                            range=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
                        ),
                        legend=alt.Legend(orient='top', title=None)),
-        order=alt.Order('Revenue Stream:N', sort=stream_order),
         tooltip=[
             alt.Tooltip('Quarter:N'),
             alt.Tooltip('Revenue Stream:N'),
@@ -557,12 +555,8 @@ else:  # Cash-flow view
     # Create cumulative cash chart
     cash_chart = alt.Chart(cashflow_df).mark_area(
         line={'color':'darkblue'},
-        color=alt.Gradient(
-            gradient='linear',
-            stops=[alt.GradientStop(color='lightblue', offset=0),
-                   alt.GradientStop(color='darkblue', offset=1)],
-            x1=1, x2=1, y1=1, y2=0
-        )
+        color='lightblue',
+        opacity=0.7
     ).encode(
         x=alt.X('Quarter:O', 
                 sort=quarters,
