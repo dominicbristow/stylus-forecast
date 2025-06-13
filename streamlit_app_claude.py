@@ -8,7 +8,7 @@ from datetime import datetime
 st.set_page_config(page_title="Stylus Forecast Model", layout="wide")
 
 # Title
-st.title("Stylus Education Financial Forecast Model")
+st.title("Stylus Education Financial Forecast")
 
 # Initialize session state
 if 'view' not in st.session_state:
@@ -100,12 +100,12 @@ if view == "Cash-flow":
     sales_marketing_pct = st.sidebar.number_input("Sales & Marketing (% of revenue)", value=12, min_value=0, max_value=50, step=1, key="sales_mkt") / 100
     
     st.sidebar.subheader("COGS Breakdown")
-    st.sidebar.markdown("**API/AI Costs (% of revenue)**")
+    st.sidebar.markdown("##### API/AI Costs (% of revenue)")
     api_cost_year1 = st.sidebar.number_input("Year 1", value=15, min_value=0, max_value=50, step=1, key="api_y1") / 100
     api_cost_year2 = st.sidebar.number_input("Year 2", value=10, min_value=0, max_value=50, step=1, key="api_y2") / 100
     api_cost_year3 = st.sidebar.number_input("Year 3+", value=5, min_value=0, max_value=50, step=1, key="api_y3") / 100
     
-    st.sidebar.markdown("**Other Variable Costs (% of revenue)**")
+    st.sidebar.markdown("##### Other Variable Costs (% of revenue)")
     infrastructure_pct = st.sidebar.number_input("Infrastructure/Hosting", value=3, min_value=0, max_value=20, step=1, key="infra") / 100
     support_pct = st.sidebar.number_input("Customer Support", value=2, min_value=0, max_value=20, step=1, key="support") / 100
     payment_processing_pct = st.sidebar.number_input("Payment Processing", value=2.5, min_value=0.0, max_value=10.0, step=0.5, key="payment") / 100
@@ -386,21 +386,6 @@ else:  # Cash-flow view
     st.header("Cash-flow Analysis")
     st.caption("ARR (Annual Recurring Revenue) is shown for reference. All costs and cash calculations are based on actual quarterly revenue.")
     
-    # Add key metrics
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        latest_arr = revenue_df['Total'].iloc[-1]
-        st.metric("Latest ARR", f"£{latest_arr:,.0f}")
-    with col2:
-        latest_gross_margin = (gross_profit[-1] / total_quarterly_revenue[-1] * 100) if total_quarterly_revenue[-1] > 0 else 0
-        st.metric("Gross Margin", f"{latest_gross_margin:.1f}%")
-    with col3:
-        latest_burn = operating_cash[-1]
-        st.metric("Quarterly Burn/Profit", f"£{latest_burn:,.0f}")
-    with col4:
-        latest_cash = cumulative_cash[-1]
-        st.metric("Cash Position", f"£{latest_cash:,.0f}")
-    
     # Calculate costs
     # Known salaries for first 4 employees
     known_salaries = [100000, 100000, 90000, 90000]
@@ -524,6 +509,21 @@ else:  # Cash-flow view
             cumulative_cash.append(op_cash)
         else:
             cumulative_cash.append(cumulative_cash[-1] + op_cash)
+    
+    # Add key metrics (now that all calculations are done)
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        latest_arr = revenue_df['Total'].iloc[-1]
+        st.metric("Latest ARR", f"£{latest_arr:,.0f}")
+    with col2:
+        latest_gross_margin = (gross_profit[-1] / total_quarterly_revenue[-1] * 100) if total_quarterly_revenue[-1] > 0 else 0
+        st.metric("Gross Margin", f"{latest_gross_margin:.1f}%")
+    with col3:
+        latest_burn = operating_cash[-1]
+        st.metric("Quarterly Burn/Profit", f"£{latest_burn:,.0f}")
+    with col4:
+        latest_cash = cumulative_cash[-1]
+        st.metric("Cash Position", f"£{latest_cash:,.0f}")
     
     # Create cash-flow dataframe
     cashflow_df = pd.DataFrame({
