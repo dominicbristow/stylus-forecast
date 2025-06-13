@@ -385,78 +385,78 @@ st.caption("ARR (Annual Recurring Revenue) is shown for reference. All costs and
 # Known salaries for first 4 employees
 known_salaries = [100000, 100000, 90000, 90000]
     
-    # Calculate headcount and payroll
-    headcount = []
-    payroll = []
-    
-    for i, q in enumerate(quarters):
-        if i == 0:  # Q3 2025
-            headcount.append(initial_employees)
-            # First 3 known salaries
-            base_salaries = sum(known_salaries[:initial_employees])
-        elif i == 1:  # Q4 2025
-            headcount.append(initial_employees + q4_2025_hires)
-            # All 4 known salaries + additional at average
-            if initial_employees + q4_2025_hires <= 4:
-                base_salaries = sum(known_salaries[:initial_employees + q4_2025_hires])
-            else:
-                base_salaries = sum(known_salaries) + (initial_employees + q4_2025_hires - 4) * avg_new_hire_salary
-        else:  # Q1 2026 onwards
-            prev_headcount = headcount[-1]
-            headcount.append(prev_headcount + quarterly_hires)
-            
-            # Calculate base salaries
-            if prev_headcount <= 4:
-                base_salaries = sum(known_salaries[:prev_headcount]) + quarterly_hires * avg_new_hire_salary
-            else:
-                base_salaries = sum(known_salaries) + (prev_headcount - 4 + quarterly_hires) * avg_new_hire_salary
-        
-        # Apply salary inflation
-        years_elapsed = i / 4
-        inflation_multiplier = (1 + salary_inflation) ** years_elapsed
-        
-        # Quarterly payroll with NI and pension (15%)
-        quarterly_payroll = (base_salaries * inflation_multiplier * 1.15) / 4
-        payroll.append(quarterly_payroll)
-    
-    # Calculate COGS with detailed breakdown
-    cogs = []
-    api_costs = []
-    infrastructure_costs = []
-    support_costs = []
-    payment_costs = []
-    other_variable_costs = []
-    
-    for i, rev in enumerate(total_quarterly_revenue):
-        year = i // 4 + 1
-        
-        # API costs (decreasing over time)
-        if year == 1:
-            api_rate = api_cost_year1
-        elif year == 2:
-            api_rate = api_cost_year2
+# Calculate headcount and payroll
+headcount = []
+payroll = []
+
+for i, q in enumerate(quarters):
+    if i == 0:  # Q3 2025
+        headcount.append(initial_employees)
+        # First 3 known salaries
+        base_salaries = sum(known_salaries[:initial_employees])
+    elif i == 1:  # Q4 2025
+        headcount.append(initial_employees + q4_2025_hires)
+        # All 4 known salaries + additional at average
+        if initial_employees + q4_2025_hires <= 4:
+            base_salaries = sum(known_salaries[:initial_employees + q4_2025_hires])
         else:
-            api_rate = api_cost_year3
+            base_salaries = sum(known_salaries) + (initial_employees + q4_2025_hires - 4) * avg_new_hire_salary
+    else:  # Q1 2026 onwards
+        prev_headcount = headcount[-1]
+        headcount.append(prev_headcount + quarterly_hires)
         
-        api_cost = rev * api_rate
-        api_costs.append(api_cost)
-        
-        # Other variable costs (constant % of revenue)
-        infra_cost = rev * infrastructure_pct
-        infrastructure_costs.append(infra_cost)
-        
-        support_cost = rev * support_pct
-        support_costs.append(support_cost)
-        
-        payment_cost = rev * payment_processing_pct
-        payment_costs.append(payment_cost)
-        
-        other_cost = rev * other_variable_pct
-        other_variable_costs.append(other_cost)
-        
-        # Total COGS
-        total_cogs = api_cost + infra_cost + support_cost + payment_cost + other_cost
-        cogs.append(total_cogs)
+        # Calculate base salaries
+        if prev_headcount <= 4:
+            base_salaries = sum(known_salaries[:prev_headcount]) + quarterly_hires * avg_new_hire_salary
+        else:
+            base_salaries = sum(known_salaries) + (prev_headcount - 4 + quarterly_hires) * avg_new_hire_salary
+    
+    # Apply salary inflation
+    years_elapsed = i / 4
+    inflation_multiplier = (1 + salary_inflation) ** years_elapsed
+    
+    # Quarterly payroll with NI and pension (15%)
+    quarterly_payroll = (base_salaries * inflation_multiplier * 1.15) / 4
+    payroll.append(quarterly_payroll)
+
+# Calculate COGS with detailed breakdown
+cogs = []
+api_costs = []
+infrastructure_costs = []
+support_costs = []
+payment_costs = []
+other_variable_costs = []
+
+for i, rev in enumerate(total_quarterly_revenue):
+    year = i // 4 + 1
+    
+    # API costs (decreasing over time)
+    if year == 1:
+        api_rate = api_cost_year1
+    elif year == 2:
+        api_rate = api_cost_year2
+    else:
+        api_rate = api_cost_year3
+    
+    api_cost = rev * api_rate
+    api_costs.append(api_cost)
+    
+    # Other variable costs (constant % of revenue)
+    infra_cost = rev * infrastructure_pct
+    infrastructure_costs.append(infra_cost)
+    
+    support_cost = rev * support_pct
+    support_costs.append(support_cost)
+    
+    payment_cost = rev * payment_processing_pct
+    payment_costs.append(payment_cost)
+    
+    other_cost = rev * other_variable_pct
+    other_variable_costs.append(other_cost)
+    
+    # Total COGS
+    total_cogs = api_cost + infra_cost + support_cost + payment_cost + other_cost
+    cogs.append(total_cogs)
     
     # Calculate gross profit
     gross_profit = [rev - cog for rev, cog in zip(total_quarterly_revenue, cogs)]
