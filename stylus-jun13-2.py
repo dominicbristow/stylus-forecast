@@ -13,7 +13,7 @@ st.set_page_config(page_title="stylus | Financial Forecast", layout="wide")
 # Title & lead‑in
 # ----------------------------------------------------------------------------------
 st.title("**stylus** | Financial Forecast")
-st.caption("Three‑year forecast with two‑quarter run‑in (Q3 2025 – Q4 2028)")
+st.caption("Three‑year forecast with two‑quarter run‑in (Q3 2025 – Q4 2028)")
 
 # ----------------------------------------------------------------------------------
 # Default parameters
@@ -62,9 +62,9 @@ st.sidebar.header("Adjust the levers (optional)")
 # Revenue parameters
 with st.sidebar.expander("Revenue Parameters", expanded=False):
     st.subheader("UK Schools")
-    starting_uk_schools = st.number_input("Starting UK schools (Q3 2025)", value=defaults["starting_uk_schools"], min_value=1, step=5)
-    hyper_growth_factor = st.number_input("Hyper‑growth factor (first 2 years)", value=defaults["hyper_growth_factor"], min_value=1.0, max_value=5.0, step=0.05, format="%.2f")
-    taper_growth_rate = st.number_input("Annual growth after 2 years (%)", value=int(defaults["taper_growth_rate"]*100), min_value=0, max_value=100, step=5) / 100.0
+    starting_uk_schools = st.number_input("Starting UK schools (Q3 2025)", value=defaults["starting_uk_schools"], min_value=1, step=5)
+    hyper_growth_factor = st.number_input("Hyper‑growth factor (first 2 years)", value=defaults["hyper_growth_factor"], min_value=1.0, max_value=5.0, step=0.05, format="%.2f")
+    taper_growth_rate = st.number_input("Annual growth after 2 years (%)", value=int(defaults["taper_growth_rate"]*100), min_value=0, max_value=100, step=5) / 100.0
 
     st.subheader("MATs")
     mat_trials_per_quarter = st.number_input("MAT trials per quarter", value=defaults["mat_trials_per_quarter"], min_value=0, step=5)
@@ -84,8 +84,8 @@ with st.sidebar.expander("Revenue Parameters", expanded=False):
 # Headcount
 with st.sidebar.expander("Headcount", expanded=False):
     initial_employees = st.number_input("Initial employees", value=defaults["initial_employees"], min_value=1, step=1)
-    q4_2025_hires = st.number_input("Q4 2025 hires", value=defaults["q4_2025_hires"], min_value=0, step=1)
-    quarterly_hires = st.number_input("Quarterly hires from Q1 2026", value=defaults["quarterly_hires"], min_value=0, step=1)
+    q4_2025_hires = st.number_input("Q4 2025 hires", value=defaults["q4_2025_hires"], min_value=0, step=1)
+    quarterly_hires = st.number_input("Quarterly hires from Q1 2026", value=defaults["quarterly_hires"], min_value=0, step=1)
     avg_new_hire_salary = st.number_input("Average new‑hire salary (£k)", value=defaults["avg_new_hire_salary"]//1000, min_value=0, step=10) * 1_000
     salary_inflation = st.number_input("Annual salary inflation (%)", value=int(defaults["salary_inflation"]*100), min_value=0, max_value=20, step=1) / 100.0
 
@@ -96,9 +96,9 @@ with st.sidebar.expander("Variable Costs", expanded=False):
 # COGS
 with st.sidebar.expander("COGS Breakdown", expanded=False):
     st.markdown("**API / AI costs (% of revenue)**")
-    api_cost_year1 = st.number_input("Year 1", value=int(defaults["api_cost_year1"]*100), min_value=0, max_value=50, step=1) / 100.0
-    api_cost_year2 = st.number_input("Year 2", value=int(defaults["api_cost_year2"]*100), min_value=0, max_value=50, step=1) / 100.0
-    api_cost_year3 = st.number_input("Year 3+", value=int(defaults["api_cost_year3"]*100), min_value=0, max_value=50, step=1) / 100.0
+    api_cost_year1 = st.number_input("Year 1", value=int(defaults["api_cost_year1"]*100), min_value=0, max_value=50, step=1) / 100.0
+    api_cost_year2 = st.number_input("Year 2", value=int(defaults["api_cost_year2"]*100), min_value=0, max_value=50, step=1) / 100.0
+    api_cost_year3 = st.number_input("Year 3+", value=int(defaults["api_cost_year3"]*100), min_value=0, max_value=50, step=1) / 100.0
 
     st.markdown("**Other variable costs (% of revenue)**")
     infrastructure_pct = st.number_input("Infrastructure / Hosting", value=int(defaults["infrastructure_pct"]*100), min_value=0, max_value=20, step=1) / 100.0
@@ -131,7 +131,7 @@ def date_to_quarter(date: pd.Timestamp) -> str:
     return f"Q{((date.month - 1)//3) + 1} {date.year}"
 
 # ----------------------------------------------------------------------------------
-# Timeline (fixed 14 quarters: Q3 2025 – Q4 2028)
+# Timeline (fixed 14 quarters: Q3 2025 – Q4 2028)
 # ----------------------------------------------------------------------------------
 base_date = pd.Timestamp("2025-07-01")
 num_quarters = 14
@@ -144,7 +144,7 @@ quarters = [date_to_quarter(base_date + pd.DateOffset(months=3*i)) for i in rang
 def calc_uk_schools(qtrs):
     schools, revenue = [], []
     for i in range(len(qtrs)):
-        if i < 8:  # hyper‑growth for 2 years
+        if i < 8:  # hyper‑growth for 2 years
             count = starting_uk_schools * (hyper_growth_factor ** (i/4))
         else:
             growth_q = (1 + taper_growth_rate) ** 0.25
@@ -264,7 +264,9 @@ for c in ["UK Schools", "MATs", "US Districts", "EAL", "Total"]:
 
 st.dataframe(formatted_rev, use_container_width=True)
 
-rev_long = pd.melt(revenue_df, id_vars=["Quarter"], var_name="Stream", value_name="ARR")
+# Fix: Exclude "Total" column when melting the dataframe
+rev_long = pd.melt(revenue_df[["Quarter", "UK Schools", "MATs", "US Districts", "EAL"]], 
+                   id_vars=["Quarter"], var_name="Stream", value_name="ARR")
 order = ["UK Schools", "MATs", "US Districts", "EAL"]
 chart = alt.Chart(rev_long).mark_area(opacity=0.8).encode(
     x=alt.X("Quarter:O", sort=quarters, axis=alt.Axis(labelAngle=-45)),
@@ -300,7 +302,7 @@ for i in range(len(quarters)):
     else:
         base = sum(known_salaries) + (hc - 4) * avg_new_hire_salary
     infl = (1 + salary_inflation) ** (i/4)
-    payroll.append((base * infl * 1.15)/4)  # NI + pension assumed 15 %
+    payroll.append((base * infl * 1.15)/4)  # NI + pension assumed 15 %
 
 # COGS components
 api_costs, infra_costs, support_costs, payment_costs, other_var_costs, cogs = [], [], [], [], [], []
@@ -390,4 +392,4 @@ cash_chart = alt.Chart(cash_df).mark_area(line={"color": "darkblue"}, color="lig
 
 st.altair_chart(cash_chart, use_container_width=True)
 
-st.caption(f"API costs decline from {int(api_cost_year1*100)} % to {int(api_cost_year3*100)} % of revenue over three years; other variable‑cost ratios remain constant.")
+st.caption(f"API costs decline from {int(api_cost_year1*100)} % to {int(api_cost_year3*100)} % of revenue over three years; other variable‑cost ratios remain constant.")
