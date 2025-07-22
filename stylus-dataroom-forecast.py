@@ -351,11 +351,11 @@ for i in range(len(quarters)):
 
 # Key cash metrics
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Latest ARR", f"£{revenue_df['Total'].iloc[-1]:,.0f}")
+c1.metric("ARR (by 2029)", f"£{revenue_df['Total'].iloc[-1]:,.0f}")
 margin = (gross_profit[-1]/quarterly_rev[-1])*100 if quarterly_rev[-1] else 0
-c2.metric("Gross margin", f"{margin:.1f}%")
-c3.metric("Quarterly burn / profit", f"£{operating_cash[-1]:,.0f}")
-c4.metric("Cash position", f"£{cumulative_cash[-1]:,.0f}")
+c2.metric("Gross margin (by 2029)", f"{margin:.1f}%")
+c3.metric("Quarterly burn / profit (by 2029)", f"£{operating_cash[-1]:,.0f}")
+c4.metric("Cash position (by 2029)", f"£{cumulative_cash[-1]:,.0f}")
 
 cash_df = pd.DataFrame({
     "Quarter": quarters,
