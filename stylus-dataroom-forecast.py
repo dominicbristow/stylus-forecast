@@ -253,10 +253,10 @@ revenue_df["Total"] = revenue_df.drop(columns=["Quarter"]).sum(axis=1)
 st.header("Revenue Forecast (ARR)")
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("UK Schools (latest)", f"{uk_schools[-1]:,}")
-col2.metric("Active MATs", f"{active_mats[-1]:,}")
-col3.metric("US Districts (latest)", f"{districts[-1]:,}")
-col4.metric("EAL learners (latest)", f"{learners[-1]:,}")
+col1.metric("UK Schools (by 2029)", f"{uk_schools[-1]:,}")
+col2.metric("Active MATs (by 2029)", f"{active_mats[-1]:,}")
+col3.metric("US Districts (by 2029)", f"{districts[-1]:,}")
+col4.metric("EAL learners (by 2029)", f"{learners[-1]:,}")
 
 formatted_rev = revenue_df.copy()
 for c in ["UK Schools", "MATs", "US Districts", "EAL", "Total"]:
