@@ -13,7 +13,7 @@ st.set_page_config(page_title="stylus | Financial Forecast", layout="wide")
 # Title & lead‑in
 # ----------------------------------------------------------------------------------
 st.title("**stylus** | Financial Forecast")
-st.caption("Three‑year forecast with two‑quarter run‑in (Q3 2025 – Q4 2028)")
+st.caption("Three‑year forecast with a one‑quarter run‑in (Q4 2025 – Q4 2028)")
 
 # ----------------------------------------------------------------------------------
 # Default parameters
@@ -131,10 +131,10 @@ def date_to_quarter(date: pd.Timestamp) -> str:
     return f"Q{((date.month - 1)//3) + 1} {date.year}"
 
 # ----------------------------------------------------------------------------------
-# Timeline (fixed 14 quarters: Q3 2025 – Q4 2028)
+# Timeline (fixed 13 quarters: Q4 2025 – Q4 2028)
 # ----------------------------------------------------------------------------------
-base_date = pd.Timestamp("2025-07-01")
-num_quarters = 14
+base_date = pd.Timestamp("2025-10-01")
+num_quarters = 13
 quarters = [date_to_quarter(base_date + pd.DateOffset(months=3*i)) for i in range(num_quarters)]
 
 # ----------------------------------------------------------------------------------
