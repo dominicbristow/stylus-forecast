@@ -222,3 +222,194 @@ def calc_eal_revenue(qtrs):
     for i in range(len(qtrs)):
         if i < launch_idx:
             learners.append(0)
+            revenue.append(0)
+            continue
+        quarters_since = i - launch_idx
+        lrn = initial_eal_learners * (eal_growth_multiplier ** quarters_since)
+        learners.append(int(lrn))
+        revenue.append((lrn * 30)/4)
+    return learners, revenue
+
+# run calculations
+uk_schools, uk_rev = calc_uk_schools(quarters)
+mat_trials, mat_conversions, mat_rev, active_mats = calc_mat_revenue(quarters)
+districts, us_rev = calc_us_revenue(quarters)
+learners, eal_rev = calc_eal_revenue(quarters)
+
+quarterly_rev = [sum(x) for x in zip(uk_rev, mat_rev, us_rev, eal_rev)]
+
+# Calculate ARR as rolling 4-quarter sum
+def calculate_arr(quarterly_values):
+    arr = []
+    q3_2025_revenue = 50_000
+    
+    for i in range(len(quarterly_values)):
+        if i < 3:
+            # For first 3 quarters, include Q3 2025 baseline + available quarters
+            arr.append(q3_2025_revenue + sum(quarterly_values[:i+1]))
+        else:
+            # From Q4 onwards, use actual trailing 4 quarters
+            arr.append(sum(quarterly_values[i-3:i+1]))
+    return arr
+
+uk_arr = calculate_arr(uk_rev)
+mat_arr = calculate_arr(mat_rev)
+us_arr = calculate_arr(us_rev)
+eal_arr = calculate_arr(eal_rev)
+total_arr = calculate_arr(quarterly_rev)
+
+revenue_df = pd.DataFrame({
+    "Quarter": quarters,
+    "UK Schools": uk_arr,
+    "MATs": mat_arr,
+    "US Districts": us_arr,
+    "EAL": eal_arr,
+})
+revenue_df["Total"] = total_arr
+
+# ----------------------------------------------------------------------------------
+# Revenue section – looks like a report
+# ----------------------------------------------------------------------------------
+st.header("Revenue Forecast (ARR)")
+
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("UK Schools (by 2029)", f"{uk_schools[-1]:,}")
+col2.metric("Active MATs (by 2029)", f"{active_mats[-1]:,}")
+col3.metric("US Districts (by 2029)", f"{districts[-1]:,}")
+col4.metric("EAL learners (by 2029)", f"{learners[-1]:,}")
+
+formatted_rev = revenue_df.copy()
+for c in ["UK Schools", "MATs", "US Districts", "EAL", "Total"]:
+    formatted_rev[c] = formatted_rev[c].apply(lambda v: f"£{v:,.0f}")
+
+st.dataframe(formatted_rev, use_container_width=True)
+
+# Fix: Exclude "Total" column when melting the dataframe
+rev_long = pd.melt(revenue_df[["Quarter", "UK Schools", "MATs", "US Districts", "EAL"]], 
+                   id_vars=["Quarter"], var_name="Stream", value_name="ARR")
+order = ["UK Schools", "MATs", "US Districts", "EAL"]
+chart = alt.Chart(rev_long).mark_area(opacity=0.8).encode(
+    x=alt.X("Quarter:O", sort=quarters, axis=alt.Axis(labelAngle=-45)),
+    y=alt.Y("ARR:Q", stack="zero", axis=alt.Axis(format=",.0f", title="Annual Recurring Revenue (£)")),
+    color=alt.Color("Stream:N", scale=alt.Scale(domain=order, range=["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"])),
+    tooltip=[alt.Tooltip("Quarter:N"), alt.Tooltip("Stream:N"), alt.Tooltip("ARR:Q", format=",.0f", title="ARR (£)")],
+).properties(width=800, height=400, title="ARR by Segment (stacked)")
+
+st.altair_chart(chart, use_container_width=True)
+
+# ----------------------------------------------------------------------------------
+# Cash‑flow section (immediately below)
+# ----------------------------------------------------------------------------------
+st.divider()
+st.header("Cash‑flow Analysis")
+st.caption("ARR shown for reference; all costs and cash figures are quarterly.")
+
+# Headcount & payroll
+known_salaries = [100_000, 100_000, 90_000, 90_000]
+headcount, payroll = [], []
+for i in range(len(quarters)):
+    if i == 0:
+        hc = initial_employees
+    elif i == 1:
+        hc = headcount[-1] + q4_2025_hires
+    else:
+        hc = headcount[-1] + quarterly_hires
+    headcount.append(hc)
+
+    # salary base
+    if hc <= 4:
+        base = sum(known_salaries[:hc])
+    else:
+        base = sum(known_salaries) + (hc - 4) * avg_new_hire_salary
+    infl = (1 + salary_inflation) ** (i/4)
+    payroll.append((base * infl * 1.15)/4)  # NI + pension assumed 15 %
+
+# COGS components
+api_costs, infra_costs, support_costs, payment_costs, other_var_costs, cogs = [], [], [], [], [], []
+for i, rev in enumerate(quarterly_rev):
+    yr = i//4 + 1
+    api_rate = api_cost_year1 if yr == 1 else api_cost_year2 if yr == 2 else api_cost_year3
+    api = rev * api_rate
+    infra = rev * infrastructure_pct
+    sup = rev * support_pct
+    pay = rev * payment_processing_pct
+    oth = rev * other_variable_pct
+    total = api + infra + sup + pay + oth
+
+    api_costs.append(api)
+    infra_costs.append(infra)
+    support_costs.append(sup)
+    payment_costs.append(pay)
+    other_var_costs.append(oth)
+    cogs.append(total)
+
+# Gross profit
+gross_profit = [r - c for r, c in zip(quarterly_rev, cogs)]
+
+# Variable S&M
+sales_marketing = [r * sales_marketing_pct for r in quarterly_rev]
+
+# Fixed costs (inflated)
+office_rent, other_opex, rd_costs = [], [], []
+for i in range(len(quarters)):
+    infl = (1 + operational_inflation) ** (i/4)
+    office_rent.append(office_rent_monthly * 3 * infl)
+    other_opex.append(other_opex_monthly * 3 * infl)
+    rd_costs.append(rd_quarterly)
+
+# Expansion costs
+expansion_costs = [0]*len(quarters)
+expansion_costs[quarters.index(us_launch_quarter)] += us_launch_cost
+expansion_costs[quarters.index(eal_launch_quarter)] += eal_launch_cost
+
+# Operating cash & cumulative
+operating_cash, cumulative_cash = [], []
+for i in range(len(quarters)):
+    op = gross_profit[i] - payroll[i] - sales_marketing[i] - office_rent[i] - other_opex[i] - rd_costs[i] - expansion_costs[i]
+    operating_cash.append(op)
+    cumulative_cash.append(op if i == 0 else cumulative_cash[-1] + op)
+
+# Key cash metrics
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("ARR (by 2029)", f"£{revenue_df['Total'].iloc[-1]:,.0f}")
+margin = (gross_profit[-1]/quarterly_rev[-1])*100 if quarterly_rev[-1] else 0
+c2.metric("Gross margin (by 2029)", f"{margin:.1f}%")
+c3.metric("Quarterly burn / profit (by 2029)", f"£{operating_cash[-1]:,.0f}")
+c4.metric("Cash position (by 2029)", f"£{cumulative_cash[-1]:,.0f}")
+
+cash_df = pd.DataFrame({
+    "Quarter": quarters,
+    "ARR": total_arr,
+    "Quarterly Revenue": quarterly_rev,
+    "API / AI": api_costs,
+    "Infrastructure": infra_costs,
+    "Support": support_costs,
+    "Payment Processing": payment_costs,
+    "Other Variable": other_var_costs,
+    "Total COGS": cogs,
+    "Gross Profit": gross_profit,
+    "Payroll": payroll,
+    "Sales & Marketing": sales_marketing,
+    "Office Rent": office_rent,
+    "Other OpEx": other_opex,
+    "R&D": rd_costs,
+    "Expansion": expansion_costs,
+    "Operating Cash": operating_cash,
+    "Cumulative Cash": cumulative_cash,
+})
+
+formatted_cash = cash_df.copy()
+for col in formatted_cash.columns[1:]:
+    formatted_cash[col] = formatted_cash[col].apply(lambda v: f"£{v:,.0f}")
+
+st.dataframe(formatted_cash, use_container_width=True)
+
+cash_chart = alt.Chart(cash_df).mark_area(line={"color": "darkblue"}, color="lightblue", opacity=0.7).encode(
+    x=alt.X("Quarter:O", sort=quarters, axis=alt.Axis(labelAngle=-45)),
+    y=alt.Y("Cumulative Cash:Q", axis=alt.Axis(format=",.0f", title="Cumulative Cash (£)"), scale=alt.Scale(zero=False)),
+    tooltip=[alt.Tooltip("Quarter:N"), alt.Tooltip("Cumulative Cash:Q", format=",.0f", title="Cash (£)")],
+).properties(width=800, height=400, title="Cumulative Cash Position")
+
+st.altair_chart(cash_chart, use_container_width=True)
+
+st.caption(f"API costs decline from {int(api_cost_year1*100)} % to {int(api_cost_year3*100)} % of revenue over three years; other variable‑cost ratios remain constant.")
