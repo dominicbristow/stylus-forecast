@@ -239,9 +239,9 @@ learners, eal_rev = calc_eal_revenue(quarters)
 quarterly_rev = [sum(x) for x in zip(uk_rev, mat_rev, us_rev, eal_rev)]
 
 # Calculate ARR as rolling 4-quarter sum
-def calculate_arr(quarterly_values):
+def calculate_arr(quarterly_values, include_uk_baseline=False):
     arr = []
-    q3_2025_revenue = 50_000
+    q3_2025_revenue = 50_000 if include_uk_baseline else 0
     
     for i in range(len(quarterly_values)):
         if i < 3:
