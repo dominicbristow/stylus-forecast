@@ -34,21 +34,21 @@ defaults = {
     "eal_growth_multiplier": 1.75,
     # Cost defaults
     "initial_employees": 3,
-    "q4_2025_hires": 3,
-    "quarterly_hires": 1,
+    "q4_2025_hires": 4,
+    "quarterly_hires": 3,
     "avg_new_hire_salary": 80_000,
     "salary_inflation": 0.04,
     "sales_marketing_pct": 0.15,
-    "api_cost_year1": 0.20,
-    "api_cost_year2": 0.15,
-    "api_cost_year3": 0.10,
+    "api_cost_year1": 0.25,
+    "api_cost_year2": 0.20,
+    "api_cost_year3": 0.15,
     "infrastructure_pct": 0.02,
     "support_pct": 0.05,
     "payment_processing_pct": 0.02,
     "other_variable_pct": 0.00,
     "office_rent_monthly": 10_000,
     "other_opex_monthly": 10_000,
-    "operational_inflation": 0.15,
+    "operational_inflation": 0.20,
     "rd_quarterly": 100_000,
     "us_launch_cost": 250_000,
     "eal_launch_cost": 750_000,
@@ -252,11 +252,11 @@ def calculate_arr(quarterly_values, include_uk_baseline=False):
             arr.append(sum(quarterly_values[i-3:i+1]))
     return arr
 
-uk_arr = calculate_arr(uk_rev)
+uk_arr = calculate_arr(uk_rev, include_uk_baseline=True)
 mat_arr = calculate_arr(mat_rev)
 us_arr = calculate_arr(us_rev)
 eal_arr = calculate_arr(eal_rev)
-total_arr = calculate_arr(quarterly_rev)
+total_arr = calculate_arr(quarterly_rev, include_uk_baseline=True)
 
 revenue_df = pd.DataFrame({
     "Quarter": quarters,
