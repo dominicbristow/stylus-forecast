@@ -14,7 +14,7 @@ import streamlit as st
 st.set_page_config(page_title="Portfolio View", layout="wide")
 st.title("Portfolio View")
 
-CSV_PATH = "/mount/src/stylus-forecast/portfolioViewDataset.csv"  # adjust if you rename
+CSV_PATH = "portfolioViewDataset.csv"  # adjust if you rename
 
 # ─── DATA LOAD ─────────────────────────────────────────────────────────────────
 @st.cache_data
