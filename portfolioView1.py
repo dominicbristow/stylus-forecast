@@ -14,7 +14,7 @@ import streamlit as st
 st.set_page_config(page_title="Portfolio View", layout="wide")
 st.title("Portfolio View")
 
-CSV_PATH = "St Bedes - Moderation check - Cropped.csv"  # adjust if you rename
+CSV_PATH = "/mount/src/stylus-forecast/portfolioViewDataset.csv"  # adjust if you rename
 
 # ─── DATA LOAD ─────────────────────────────────────────────────────────────────
 @st.cache_data
@@ -33,7 +33,7 @@ def load_data(path: str) -> pd.DataFrame:
     ]
     return df[cols]
 
-df = load_data(portfolioViewDataset.csv)
+df = load_data(CSV_PATH)
 
 # ─── UI – PUPIL FILTER ─────────────────────────────────────────────────────────
 pupils = sorted(df["Pupil Name"].dropna().unique())
