@@ -1,22 +1,24 @@
 """
-portfolio_view.py  –  Stylus “Portfolio View” (Streamlit)
-Run:  streamlit run portfolio_view.py
+portfolio_view.py — Stylus “Portfolio View” panel
+Run with:  streamlit run portfolio_view.py
+No extra libraries needed.
 """
 
 import textwrap
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Portfolio View", layout="wide")
 st.title("Portfolio View")
 
-CSV_PATH = "dataset.csv"   # update if renamed
+DATA_PATH = "dataset.csv"      # rename if needed
 
-# ── DATA LOAD ─────────────────────────────────────────────────────────────────
+# ── LOAD & PREP ───────────────────────────────────────────────────────────────
 @st.cache_data
-def load_data(path: str) -> pd.DataFrame:
-    df = pd.read_csv(path, dtype=str)                      # read everything as str
+def load_csv(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path, dtype=str)
     keep = [
         "Pupil Name",
         "Judgement (%)",
@@ -28,22 +30,18 @@ def load_data(path: str) -> pd.DataFrame:
         "criteria guidance",
     ]
     df = df[keep]
-
     df["Judgement_num"] = (
-        df["Judgement (%)"]
-        .str.rstrip("%")
-        .replace("", pd.NA)
-        .astype(float)
+        df["Judgement (%)"].str.rstrip("%").replace("", pd.NA).astype(float)
     )
     return df
 
-df = load_data(CSV_PATH)
+df = load_csv(DATA_PATH)
 
-# ── UI – PUPIL FILTER ─────────────────────────────────────────────────────────
+# ── UI ────────────────────────────────────────────────────────────────────────
 pupil = st.selectbox("Select pupil", sorted(df["Pupil Name"].dropna().unique()))
-view  = df.loc[df["Pupil Name"] == pupil].copy()
+view  = df[df["Pupil Name"] == pupil].copy()
 
-# ── PIVOT ─────────────────────────────────────────────────────────────────────
+# ── PIVOT (numeric) ───────────────────────────────────────────────────────────
 pivot = (
     view.pivot_table(
         index=["KS2 Standard", "KS2 Statement", "Criterion"],
@@ -55,54 +53,59 @@ pivot = (
     .sort_index()
 )
 
-reasons = (
-    view.pivot_table(
-        index=["KS2 Standard", "KS2 Statement", "Criterion"],
-        columns="Purpose",
-        values="🤖 REASON",
-        aggfunc=lambda x: " | ".join(x.astype(str).unique()),
-    )
-    .reindex(pivot.index)
-)
+# identical‑shape frame of reasons
+reasons = view.pivot_table(
+    index=["KS2 Standard", "KS2 Statement", "Criterion"],
+    columns="Purpose",
+    values="🤖 REASON",
+    aggfunc=lambda s: " | ".join(s.unique()),
+).reindex(pivot.index)
 
+# guidance for each Criterion (for the row‑label tooltip)
 guidance = (
     view.groupby(["KS2 Standard", "KS2 Statement", "Criterion"])["criteria guidance"]
     .first()
 )
 
-# ── HELPERS ───────────────────────────────────────────────────────────────────
-def wrap(txt: str, width: int = 24, lines: int = 2) -> str:
-    wrapped = textwrap.fill(str(txt), width=width)
-    bits    = wrapped.split("\n")[:lines]
-    return "\n".join(bits) + ("…" if len(bits) < len(wrapped.split("\n")) else "")
+# ── SMALL HELPERS ─────────────────────────────────────────────────────────────
+def wrap(txt: str, width: int = 28, lines: int = 2) -> str:
+    """Wrap & crop, but keep the full text as a tooltip via <span title="">."""
+    if pd.isna(txt):
+        return ""
+    wrapped = textwrap.fill(txt, width=width)
+    out_lines = wrapped.split("\n")[:lines]
+    display  = "\n".join(out_lines)
+    if len(out_lines) < len(wrapped.split("\n")):
+        display += "…"
+    # embed HTML so the full text shows on hover
+    return f'<span title="{txt}">{display}</span>'
 
-def gradient(v: float) -> str:
+def colour(v: float) -> str:
+    """Red→Yellow→Green smooth gradient for 0‑100."""
     if pd.isna(v):
         return ""
-    v = max(0, min(100, float(v)))              # clamp 0‑100
-    if v <= 50:                                 # red → yellow
+    v = max(0, min(100, v))
+    if v <= 50:              # red‑>yellow
         f = v / 50
-        r = int(244 + (255 - 244) * f)
-        g = int(67  + (235 - 67)  * f)
-        b = int(54  + (59  - 54)  * f)
-    else:                                       # yellow → green
+        r, g, b = 244 + (11 * f), 67 + (168 * f), 54 + (5 * f)
+    else:                    # yellow‑>green
         f = (v - 50) / 50
-        r = int(255 + (76  - 255) * f)
-        g = int(235 + (175 - 235) * f)
-        b = int(59  + (80  - 59)  * f)
-    return f"background-color:#{r:02x}{g:02x}{b:02x};"
+        r, g, b = 255 + (-179 * f), 235 + (-60 * f), 59 + (21 * f)
+    return f"background-color:#{int(r):02x}{int(g):02x}{int(b):02x};"
 
-# tidy index
+# ── BUILD DISPLAY FRAME ───────────────────────────────────────────────────────
+# 1) make prettier index with inline tooltips
 pivot.index = pd.MultiIndex.from_tuples(
-    [(wrap(a), wrap(b), wrap(c)) for a, b, c in pivot.index],
-    names=["KS2 Standard", "KS2 Statement", "Criterion"],
+    [
+        (wrap(a), wrap(b), wrap(c))   # full text preserved in title attr
+        for a, b, c in pivot.index
+    ],
+    names=["KS2 Standard", "KS2 Statement", "Criterion"]
 )
 
-crit_tooltip = {wrap(k): v for (_, _, k), v in guidance.items()}
-
-# convert for styler
+# 2) collapse index into columns so Styler can attach tooltips easily
 disp = pivot.reset_index()
-disp["Criterion ⓘ"] = disp["Criterion"]
+disp["Criterion ⓘ"] = disp["Criterion"]          # show criterion as a column
 disp = disp.drop(columns="Criterion").set_index(
     ["KS2 Standard", "KS2 Statement", "Criterion ⓘ"]
 )
@@ -112,16 +115,26 @@ reas["Criterion ⓘ"] = disp.index.get_level_values("Criterion ⓘ")
 reas = reas.set_index(
     ["KS2 Standard", "KS2 Statement", "Criterion ⓘ"]
 )
+
+# attach criterion‑level guidance tooltip to the index column itself
 reas["Criterion ⓘ"] = reas.index.get_level_values("Criterion ⓘ").map(
-    crit_tooltip.get
+    lambda x: guidance.get(x.strip("<span title=\"").split("\">")[0], "")
 )
 
-# ── STYLE & RENDER ────────────────────────────────────────────────────────────
+# ── STYLE ─────────────────────────────────────────────────────────────────────
 styler = (
     disp.style
-    .applymap(gradient)
+    .applymap(colour)
     .format("{:.0f}%")
-    .set_tooltips(reas)
+    .set_tooltips(reas)            # cell reasons + row‑label guidance
+    .set_table_styles([            # keep left margin narrow & wrapped
+        {"selector":"th",
+         "props":[("max-width","180px"),("white-space","pre-wrap")]}
+    ])
+    .hide(axis="index", level=0)   # hide top‑level index header row
+    .format(escape=False)          # allow our inline HTML tooltips
 )
 
-st.dataframe(styler, use_container_width=True)
+# ── RENDER ────────────────────────────────────────────────────────────────────
+html = styler.to_html()
+components.html(html, height=600, scrolling=True)
