@@ -1,24 +1,24 @@
 """
-portfolio_view.py  ▸ Streamlit panel: “Portfolio View”
+portfolio_view.py  –  Stylus “Portfolio View” (Streamlit)
 """
 
 import textwrap
 import pandas as pd
 import streamlit as st
+from matplotlib.colors import LinearSegmentedColormap
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Portfolio View", layout="wide")
 st.title("Portfolio View")
 
-CSV_PATH = "dataset.csv"  # adjust if renamed
+CSV_PATH = "dataset.csv"   # adjust if renamed
 
 # ── DATA LOAD ─────────────────────────────────────────────────────────────────
 @st.cache_data
 def load_data(path: str) -> pd.DataFrame:
     df = pd.read_csv(path)
 
-    # keep only the columns we need
-    cols = [
+    keep = [
         "Pupil Name",
         "Judgement (%)",
         "KS2 Standard",
@@ -28,24 +28,23 @@ def load_data(path: str) -> pd.DataFrame:
         "🤖 REASON",
         "criteria guidance",
     ]
-    df = df[cols]
+    df = df[keep]
 
-    # make a numeric copy for aggregation
+    # numeric version for aggregation / colour‑mapping
     df["Judgement_num"] = (
         df["Judgement (%)"].astype(str).str.rstrip("%").replace("", pd.NA).astype(float)
     )
-
     return df
 
 df = load_data(CSV_PATH)
 
-# ── PUPIL FILTER ──────────────────────────────────────────────────────────────
+# ── UI – PUPIL FILTER ─────────────────────────────────────────────────────────
 pupils = sorted(df["Pupil Name"].dropna().unique())
-selected = st.selectbox("Select pupil", pupils, index=0, key="pupil_select")
-df_view = df[df["Pupil Name"] == selected].copy()
+pupil = st.selectbox("Select pupil", pupils, 0)
+df_view = df[df["Pupil Name"] == pupil].copy()
 
-# ── PIVOT TABLE (numeric) ─────────────────────────────────────────────────────
-pivot_vals = (
+# ── PIVOT (numeric) ───────────────────────────────────────────────────────────
+pivot = (
     df_view.pivot_table(
         index=["KS2 Standard", "KS2 Statement", "Criterion"],
         columns="Purpose",
@@ -56,76 +55,74 @@ pivot_vals = (
     .sort_index()
 )
 
-# same‑shape frame of “reasons” for tooltips
-pivot_reasons = df_view.pivot_table(
-    index=["KS2 Standard", "KS2 Statement", "Criterion"],
-    columns="Purpose",
-    values="🤖 REASON",
-    aggfunc=lambda x: " | ".join(x.astype(str).unique()),
-).reindex(pivot_vals.index)
+# reasons (same shape) for tooltips
+reasons = (
+    df_view.pivot_table(
+        index=["KS2 Standard", "KS2 Statement", "Criterion"],
+        columns="Purpose",
+        values="🤖 REASON",
+        aggfunc=lambda x: " | ".join(x.astype(str).unique()),
+    )
+    .reindex(pivot.index)
+)
 
-# guidance per Criterion
-criterion_guidance = (
+# criterion‑level guidance
+guidance = (
     df_view.groupby(["KS2 Standard", "KS2 Statement", "Criterion"])["criteria guidance"]
     .first()
 )
 
-# ── UTILITIES ─────────────────────────────────────────────────────────────────
-def colour_scale(v: float):
-    if pd.isna(v):
-        return ""
-    if v >= 80:
-        return "background-color:#4caf50;"
-    if v >= 50:
-        return "background-color:#ffeb3b;"
-    if v <= 20:
-        return "background-color:#f44336;"
-    return "background-color:#ffb74d;"
-
-def wrap(text, width=36, max_lines=2):
+# ── HELPERS ───────────────────────────────────────────────────────────────────
+def wrap(text: str, width: int = 28, lines: int = 2) -> str:
     wrapped = textwrap.fill(str(text), width=width)
-    lines = wrapped.split("\n")[:max_lines]
-    out = "\n".join(lines)
-    if len(lines) == max_lines and len(wrapped.split("\n")) > max_lines:
-        out += "…"
-    return out
+    bits = wrapped.split("\n")[:lines]
+    return "\n".join(bits) + ("…" if len(bits) < len(wrapped.split("\n")) else "")
 
-# tidy up deepest index level for display
-new_index = [
-    (*idx[:2], wrap(idx[2]))  # idx = (KS2 Standard, KS2 Statement, Criterion)
-    for idx in pivot_vals.index.to_list()
-]
-pivot_vals.index = pd.MultiIndex.from_tuples(
-    new_index, names=["KS2 Standard", "KS2 Statement", "Criterion"]
+# wrap every index level for a neater, narrower left column
+pivot.index = pd.MultiIndex.from_tuples(
+    [
+        (wrap(a), wrap(b), wrap(c))
+        for a, b, c in pivot.index.to_list()
+    ],
+    names=["KS2 Standard", "KS2 Statement", "Criterion"],
 )
 
-# map wrapped criterion → guidance for tooltip
-criterion_tooltips = {wrap(k): g for (_, _, k), g in criterion_guidance.items()}
+# build row‑label tooltip map
+criterion_tooltip_map = {
+    wrap(k): v for (_, _, k), v in guidance.items()
+}
 
-# ── STYLE & TOOLTIP SET‑UP ────────────────────────────────────────────────────
-pivot_display = pivot_vals.reset_index()
-pivot_display["Criterion ⓘ"] = pivot_display["Criterion"]
-pivot_display = pivot_display.drop(columns="Criterion").set_index(
+# convert to DataFrame (so we can attach tooltips on index labels)
+pivot_disp = pivot.reset_index()
+pivot_disp["Criterion ⓘ"] = pivot_disp["Criterion"]
+
+pivot_disp = (
+    pivot_disp.drop(columns="Criterion")
+    .set_index(["KS2 Standard", "KS2 Statement", "Criterion ⓘ"])
+)
+
+reasons_disp = reasons.reset_index()
+reasons_disp["Criterion ⓘ"] = pivot_disp.index.get_level_values("Criterion ⓘ")
+reasons_disp = reasons_disp.set_index(
     ["KS2 Standard", "KS2 Statement", "Criterion ⓘ"]
 )
 
-tooltip_df = pivot_reasons.reset_index()
-tooltip_df["Criterion ⓘ"] = pivot_display.index.get_level_values("Criterion ⓘ")
-tooltip_df = tooltip_df.set_index(
-    ["KS2 Standard", "KS2 Statement", "Criterion ⓘ"]
-)
-
-# add row‑label tooltips
+# attach row‑label guidance
 for lvl in ["Criterion ⓘ"]:
-    tooltip_df[lvl] = tooltip_df.index.get_level_values(lvl).map(
-        lambda w: criterion_tooltips.get(w, "")
+    reasons_disp[lvl] = reasons_disp.index.get_level_values(lvl).map(
+        criterion_tooltip_map.get
     )
 
+# ── COLOUR GRADIENT ───────────────────────────────────────────────────────────
+traffic = LinearSegmentedColormap.from_list(
+    "traffic", ["#f44336", "#ffeb3b", "#4caf50"], N=256
+)
+
 styler = (
-    pivot_display.style
-    .applymap(colour_scale)
+    pivot_disp.style
+    .background_gradient(cmap=traffic, vmin=0, vmax=100)
     .format("{:.0f}%")
-    .set_tooltips(tooltip_df)
+    .set_tooltips(reasons_disp)
 )
 
 # ── RENDER ────────────────────────────────────────────────────────────────────
