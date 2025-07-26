@@ -33,7 +33,7 @@ def load_data(path: str) -> pd.DataFrame:
     ]
     return df[cols]
 
-df = load_data(CSV_PATH)
+df = load_data(portfolioViewDataset.csv)
 
 # ─── UI – PUPIL FILTER ─────────────────────────────────────────────────────────
 pupils = sorted(df["Pupil Name"].dropna().unique())
